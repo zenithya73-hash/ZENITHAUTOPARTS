@@ -502,7 +502,7 @@ async function initStorage(){
   }catch(e){
     _idbOk=false;
     for(const k of keys){ try{ _raw[k]=JSON.parse(localStorage.getItem(k)); }catch(er){ _raw[k]=null; } }
-    showBanner('⚠️ ဒေတာသိမ်းဆည်းမှုစနစ်အသစ်ကို ဒီ browser မှာ မသုံးနိုင်ပါ (Private window ဖြစ်နိုင်သည်)။ ယာယီစနစ်ဖြင့် သုံးနေသဖြင့် Backup ကို မကြာခဏလုပ်ပါ။','warn',[{label:'🗄️ Backup လုပ်မည်',fn:()=>doBackup(),close:false},{label:'ပိတ်မည်'}]);
+    showBanner('⚠️ ဒေတာသိမ်းဆည်းမှုစနစ်အသစ်ကို ဒီနေရာမှာ အသုံးမပြုနိုင်ပါ (Private/InPrivate window ဖြစ်နိုင်သည်)။ ယာယီစနစ်ဖြင့် သုံးနေသဖြင့် Backup ကို မကြာခဏလုပ်ပါ။','warn',[{label:'🗄️ Backup လုပ်မည်',fn:()=>doBackup(),close:false},{label:'ပိတ်မည်'}]);
   }
 }
 function loadData(){
@@ -558,6 +558,22 @@ function loadMeta(){ try{ return JSON.parse(localStorage.getItem('cc_meta'))||{}
 function saveMeta(m){
   try{ localStorage.setItem('cc_meta',JSON.stringify(m)); }catch(e){}
   if(_idbOk) idbSet('cc_meta',m).catch(()=>{});
+}
+// Invoice numbers: INV-YYYYMMDD-NNN (local date, running number that restarts at 001 each day)
+function localDateCompact(d){
+  return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+}
+function nextInvoiceId(){
+  const day = localDateCompact(new Date());
+  const prefix = 'INV-'+day+'-';
+  let max = 0;
+  sales.forEach(x=>{
+    if(typeof x.id==='string' && x.id.startsWith(prefix)){
+      const n = parseInt(x.id.slice(prefix.length),10);
+      if(!isNaN(n) && n>max) max=n;
+    }
+  });
+  return prefix + String(max+1).padStart(3,'0');
 }
 function fmt(n){ return Number(n).toLocaleString('en-US')+" ကျပ်"; }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -654,7 +670,7 @@ document.getElementById('checkoutBtn').addEventListener('click',()=>{
   const discountValue=parseFloat(document.getElementById('discountValue').value)||0;
   const discountAmount = getDiscountAmount(subtotal);
   const total = subtotal-discountAmount;
-  const sale = { id:'INV-'+Date.now().toString().slice(-6), date:new Date().toISOString(), items:[...cart], subtotal, discountType, discountValue, discountAmount, total };
+  const sale = { id:nextInvoiceId(), date:new Date().toISOString(), items:[...cart], subtotal, discountType, discountValue, discountAmount, total };
   sales.push(sale); saveSales();
   showReceipt(sale);
   cart=[]; document.getElementById('discountValue').value=''; renderCart();
